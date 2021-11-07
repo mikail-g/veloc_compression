@@ -2,7 +2,7 @@
 
 #include "axl.h"
 #include "common/file_util.hpp"
-
+#include <zlib.h>
 #include <unistd.h>
 
 //#define __DEBUG

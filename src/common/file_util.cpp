@@ -13,33 +13,14 @@
 #include <cstring>
 #include <regex>
 
-#include <libpressio.h>
-#include "/home/mikailg/ECE8930/spack/opt/spack/linux-centos8-sandybridge/gcc-8.4.1/sz-2.1.12-4zp2q5kdc7oycxxfckhm3artby46kbxa/include/sz/sz.h"
+#include <zlib.h>
+
+
 
 #define __DEBUG
 #include "debug.hpp"
 
 
-void create_compressor(struct pressio_compressor *compressor){
-    struct pressio *library = pressio_instance();
-    compressor = pressio_get_compressor(library, "sz");
-
-    const char *metrics[] = {"size"};
-    struct pressio_metrics *metrics_plugin = pressio_new_metrics(library, metrics, 1);
-    pressio_compressor_set_metrics(compressor, metrics_plugin);
-
-    struct pressio_options *sz_options = pressio_compressor_get_options(compressor);
-    pressio_options_set_integer(sz_options, "sz:error_bound_mode", ABS);
-    pressio_options_set_double(sz_options, "sz:abs_err_bound", 0.01);
-    if (pressio_compressor_check_options(compressor, sz_options)) {
-        printf("%s\n", pressio_compressor_error_msg(compressor));
-        exit(pressio_compressor_error_code(compressor));
-    }
-    if (pressio_compressor_set_options(compressor, sz_options)) {
-        printf("%s\n", pressio_compressor_error_msg(compressor));
-        exit(pressio_compressor_error_code(compressor));
-    }
-}
 
 bool parse_dir(const std::string &p, const std::string &cname, dir_callback_t f) {
     DIR *dir;
@@ -98,58 +79,59 @@ bool read_file(const std::string &source, unsigned char *buffer, ssize_t size) {
 
 /* ORIGINAL VELOC */
 bool posix_transfer_file(const std::string &source, const std::string &dest) {
-    TIMER_START(io_timer);
-    int fi = open(source.c_str(), O_RDONLY);
+   int fi = open(source.c_str(), O_RDONLY);
     if (fi == -1) {
-	ERROR("cannot open source " << source << "; error = " << std::strerror(errno));
-	return false;
+        ERROR("cannot open " << source << ", error = " << std::strerror(errno));
+        return false;
     }
-    size_t size = lseek(fi, 0, SEEK_END);
-    double* r_addr = (double*) mmap(NULL, size, PROT_READ, MAP_PRIVATE, fi, 0);
+    ssize_t size = lseek(fi, 0, SEEK_END);
+    char* r_addr = (char*) mmap(NULL, size, PROT_READ, MAP_PRIVATE, fi, 0);
     if (r_addr == MAP_FAILED) {
         ERROR("r_addr map failed!" << std::endl);
         return false;
     }
     madvise(r_addr, size, MADV_SEQUENTIAL);
 
-    struct pressio_compressor *compressor;
-    create_compressor(compressor);
-    size_t dims[] = {size};
-    struct pressio_data *input_data = pressio_data_new_move(pressio_double_dtype, r_addr, 1, dims, pressio_data_libc_free_fn, NULL);
-    struct pressio_data *compressed_data = pressio_data_new_empty(pressio_byte_dtype, 0, NULL);
+    unsigned long nDataSize = file_size(source.c_str());
+	unsigned long nCompressedDataSize = nDataSize;
+	unsigned char * pCompressedData = new unsigned char[nCompressedDataSize];
+    const unsigned char *inputData = (unsigned char *)r_addr;
+	
+	int nResult = compress2(pCompressedData, &nCompressedDataSize, inputData, nDataSize, 9);
 
-    // configure the decompressed output area
-    struct pressio_data *decompressed_data = pressio_data_new_empty(pressio_double_dtype, 1, dims);
-
-    // compress the data
-    if (pressio_compressor_compress(compressor, input_data, compressed_data)) {
-        printf("%s\n", pressio_compressor_error_msg(compressor));
-        exit(pressio_compressor_error_code(compressor));
+    if(nResult != Z_OK){
+        ERROR("Could not compress buffer");
+        return false;
     }
 
-
-    int fo = open(dest.c_str(), O_CREAT | O_WRONLY, 0644);
+    int fo = open(dest.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644);
     if (fo == -1) {
-	close(fi);
         munmap(r_addr, size);
-	ERROR("cannot open destination " << dest << "; error = " << std::strerror(errno));
-	return false;
+        delete [] pCompressedData;
+        ERROR("cannot open " << dest << ", error = " << strerror(errno));
+        return false;
     }
-    size_t remaining = size;
-    while (remaining > 0) {
-        ssize_t written = write(fo, compressed_data, remaining);
+    ssize_t remaining = file_size(source.c_str());
+    while(remaining > 0)
+    {
+        ssize_t written = write(fo, pCompressedData, remaining);
         if (written == -1) {
+             munmap(r_addr, size);
+             delete [] pCompressedData;
              ERROR("cannot write from " << source << " to " << dest << "; error = " << std::strerror(errno));
              break;
         }
-        r_addr += written;
-        remaining -= written;
+        r_addr += (unsigned)written;
+        remaining -= (unsigned)written;
+        INFO("wrote " << written << " bytes from " << source << " to " << dest);
     }
+    
     munmap(r_addr, size);
+    delete [] pCompressedData;
     close(fi);
     close(fo);
-    TIMER_STOP(io_timer, "transferred " << source << " to " << dest);
-    return remaining == 0;
+    INFO("stopping timer...");
+    return true;
 }
 
 
@@ -168,9 +150,22 @@ bool transfer_naive_comm(const std::string &source, const std::string &dest, ssi
     }
     madvise(r_addr, size, MADV_SEQUENTIAL);
 
+    unsigned long nDataSize = file_size(source.c_str());
+	unsigned long nCompressedDataSize = nDataSize;
+	unsigned char * pCompressedData = new unsigned char[nCompressedDataSize];
+    const unsigned char *inputData = (unsigned char *)r_addr;
+	
+	int nResult = compress2(pCompressedData, &nCompressedDataSize, inputData, nDataSize, 9);
+
+    if(nResult != Z_OK){
+        ERROR("Could not compress buffer");
+        return false;
+    }
+
     int fo = open(dest.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644);
     if (fo == -1) {
         munmap(r_addr, size);
+        delete [] pCompressedData;
         ERROR("cannot open " << dest << ", error = " << strerror(errno));
         return false;
     }
@@ -178,9 +173,10 @@ bool transfer_naive_comm(const std::string &source, const std::string &dest, ssi
     lseek(fo, (unsigned)offset, SEEK_SET);
     while(remaining > 0)
     {
-        ssize_t written = write(fo, r_addr, remaining);
+        ssize_t written = write(fo, pCompressedData, remaining);
         if (written == -1) {
              munmap(r_addr, size);
+             delete [] pCompressedData;
              ERROR("cannot write from " << source << " to " << dest << "; error = " << std::strerror(errno));
              break;
         }
@@ -190,6 +186,7 @@ bool transfer_naive_comm(const std::string &source, const std::string &dest, ssi
     }
     
     munmap(r_addr, size);
+    delete [] pCompressedData;
     close(fi);
     close(fo);
     INFO("stopping timer...");
