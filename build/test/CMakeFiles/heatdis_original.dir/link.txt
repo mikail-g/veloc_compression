@@ -1,0 +1,1 @@
+/bin/cc -O2 -DNDEBUG CMakeFiles/heatdis_original.dir/heatdis_original.c.o -o heatdis_original  -lm /software/spackages/linux-centos8-x86_64/gcc-8.4.1/openmpi-3.1.6-vgm2v2kplihuze3q5ozerlxzman3scic/lib/libmpi.so 

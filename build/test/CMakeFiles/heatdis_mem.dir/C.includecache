@@ -1,0 +1,42 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../include/veloc.h
+veloc/defs.h
+../include/veloc/defs.h
+string.h
+-
+mpi.h
+-
+
+../include/veloc/defs.h
+
+/home/mikailg/ECE8930/veloc_src/test/heatdis.h
+stdio.h
+-
+stdlib.h
+-
+math.h
+-
+mpi.h
+-
+
+/home/mikailg/ECE8930/veloc_src/test/heatdis_mem.c
+stdio.h
+-
+stdlib.h
+-
+math.h
+-
+heatdis.h
+/home/mikailg/ECE8930/veloc_src/test/heatdis.h
+include/veloc.h
+/home/mikailg/ECE8930/veloc_src/test/include/veloc.h
+assert.h
+-
+

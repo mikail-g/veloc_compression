@@ -1,0 +1,14 @@
+/home/mikailg/ECE8930/install/bin/veloc_jsrun
+/home/mikailg/ECE8930/install/bin/veloc_env
+/home/mikailg/ECE8930/install/bin/veloc_list_down_nodes
+/home/mikailg/ECE8930/install/bin/veloc_check_node
+/home/mikailg/ECE8930/install/bin/veloc_glob_hosts
+/home/mikailg/ECE8930/install/share/veloc/veloc_hostlist.pm
+/home/mikailg/ECE8930/install/lib64/libveloc-modules.so
+/home/mikailg/ECE8930/install/bin/veloc-backend
+/home/mikailg/ECE8930/install/lib64/libveloc-client.so
+/home/mikailg/ECE8930/install/include/veloc.h
+/home/mikailg/ECE8930/install/include/veloc.hpp
+/home/mikailg/ECE8930/install/include/veloc/defs.h
+/home/mikailg/ECE8930/install/include/veloc/cereal.hpp
+/home/mikailg/ECE8930/install/include/veloc/bitsery.hpp
